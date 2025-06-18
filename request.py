@@ -81,6 +81,7 @@ def get_deliver_method(show_id, session_id, seat_plan_id, price: int, qty: int) 
         ]
     }
     url = "https://m.piaoxingqiu.com/cyy_gatewayapi/trade/buyer/order/v3/pre_order"
+    # logging.info(seat_plan_id)
     response = requests.post(url=url, headers=headers, json=data).json()
     if response["statusCode"] == 200:
         return response["data"]["supportDeliveries"][0]["name"]
@@ -92,11 +93,15 @@ def get_audiences() -> list | None:
     headers = {
         'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Mobile Safari/537.36',
         'Content-Type': 'application/json',
-        'access-token': token
+        'access-token': 'eyJ0eXAiOiJKV1QiLCJjdHkiOiJKV1QiLCJ6aXAiOiJERUYiLCJhbGciOiJSUzUxMiJ9.eNp8kU2PgjAQhv9Lzx76BQVuymokwWBYOXhqCgyRBIGUslnX-N-3VbN62uPMPO_MOzNXNKjZnJK-GVDUz123QPME-hFfUdn-xEMNKEKbbSp3aIGmuVz9JX3qCxVggJqSwONUBH5DeMgtZ5X50DloVRzXuc2cTVW41rUTeiH3KkFZo5qQYIwJhpoH-CF8YYKVARVMCQ-q0GGMhMJv0O3OZSNoZYb_WOJamstojRBrAXR1Ur15X_cL9NQOPYroAo1Km9bcI-RbIXyPrYZDe3Zy4WFGCbfOuUUrDcq8lSjz8LM0XSYD5-eJ4mUij4mM06z4kPdTyH2Rx9vl51ru0-Vhk-W7x6T3Eba_9dlD51Z7vaVXbpyLb78AAAD__w.HBkmpp4SvLtYFgZFpWTNHtcvCVH6sr_2dQ2IJCjKl7_kh8r1ZpOVEMoz_ytT9Mw8CQs96NkaC4WB0rczjk-ZLut0QtSR2NIn4jZDqgGC45B_97n_UQemhtHtzSeCbsiQ3y5HiCrsUGBdrWcCiZanfFb5N4tynyzkHsQ7XOTWb9s'
     }
-    url = "https://m.piaoxingqiu.com/cyy_gatewayapi/user/buyer/v3/user_audiences"
+    # url = "https://m.piaoxingqiu.com/cyy_gatewayapi/user/buyer/v3/user_audiences"
+    url = "https://m.piaoxingqiu.com/cyy_gatewayapi/user/buyer/v3/user_audiences?idTypes=&lang=zh&length=500&offset=0&showId=&terminalSrc=WEB&utcOffset=480&ver=4.35.3&src=WEB"
     response = requests.get(url=url, headers=headers).json()
     if response["statusCode"] == 200:
+        logging.info("get_audiences 通信正常")
+        # logging.info(response)
+        # return response["data"]["audiences"]
         return response["data"]
     else:
         logging.error("get_audiences异常: " + str(response))
@@ -109,7 +114,7 @@ def get_address() -> dict | None:
         'Content-Type': 'application/json',
         'access-token': token
     }
-    url = "https://m.piaoxingqiu.com/cyy_gatewayapi/user/buyer/v3/user/addresses/default"
+    url = "https://m.piaoxingqiu.com/cyy_gatewayapi/user/buyer/v5/user/addresses/default"
     response = requests.get(url=url, headers=headers).json()
     if response["statusCode"] == 200:
         return response["data"]
@@ -167,11 +172,26 @@ def generate_timestamp_id():
 def create_order(show_id, session_id, seat_plan_id, price: int, qty: int, deliver_method, express_fee: int, receiver,
                  cellphone,
                  address_id, detail_address, location_city_id, audience_ids: list):
+    # headers = {
+    #     'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Mobile Safari/537.36',
+    #     'Content-Type': 'application/json',
+    #     'access-token': 'eyJ0eXAiOiJKV1QiLCJjdHkiOiJKV1QiLCJ6aXAiOiJERUYiLCJhbGciOiJSUzUxMiJ9'
+    # }
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Mobile Safari/537.36',
-        'Content-Type': 'application/json',
-        'access-token': token
+        "Accept": "*/*",
+        "Accept-Language": "zh-HK,zh-TW;q=0.9,zh;q=0.8,en-US;q=0.7,en;q=0.6,zh-CN;q=0.5",
+        "Angry-dog": "N2YxOWMzZjg4YWJlMDJjZDk0NWEzYzRjZTAwYzI3NzUyNDMzZWRiNjljNDhjNTQ4NjI2Yjc5Y2JmMWY4NjI0YTpkYTIwYTUxNTA4N2UzMjA2NTAyOWRkN2QxZGMyZTE4NDJjMTI2ZGFmM2Y5MWYxN2I1ZjkwYzdjOTM5ODJlMTFmMjEwZWQwY2NiM2M0YjMyY2E3MmI0MjBiYThiMWIyYmM4MzEwOGRiNTdjYzdlMTJlYTM2OThmMTMxNDEyY2VjODkzNTkwN2UzODU0OGRjOWNlZGY1YWMxYzk1YzMwYTcwM2VkOWQ3MGI4ZTQzNDU2NTA4MTUyZDBiOTFlYmRjMDE6MTc1MDI0NjgwODA0MQ",
+        "Content-Type": "application/json",
+        "Origin": "https://m.piaoxingqiu.com",
+        "Referer": "https://m.piaoxingqiu.com/order/confirm?cpId=local_319b3a930eea4de6b6f71c95&whiteTagsSeatPlanIds=",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)...",
+        "access-token": "eyJ0eXAiOiJKV1QiLCJjdHkiOiJKV1QiLCJ6aXAiOiJERUYiLCJhbGciOiJSUzUxMiJ9",
+        "src": "WEB",
+        "terminal-src": "WEB",
+        "utc-offset": "480",
+        "ver": "4.35.3",
     }
+
     if deliver_method == "EXPRESS":
         data = {
             "priceItemParam": [
@@ -230,7 +250,84 @@ def create_order(show_id, session_id, seat_plan_id, price: int, qty: int, delive
             }
         }
     elif deliver_method == "E_TICKET":
+        # data = {
+        #     "priceItemParam": [
+        #         {
+        #             "applyTickets": [],
+        #             "priceItemName": "票款总额",
+        #             "priceItemVal": price * qty,
+        #             "priceItemType": "TICKET_FEE",
+        #             "priceItemSpecies": "SEAT_PLAN",
+        #             "direction": "INCREASE",
+        #             "priceDisplay": "￥" + str(price * qty)
+        #         }
+        #     ],
+        #     "items": [
+        #         {
+        #             "deliverMethod": deliver_method,
+        #             "sku": [
+        #                 {
+        #                     # "seatPlanId": seat_plan_id,
+        #                     # "sessionId": session_id,
+        #                     # "showId": show_id,
+        #                     "skuId": seat_plan_id,
+        #                     "skuType": "SINGLE",
+        #                     "ticketPrice": price,
+        #                     "qty": qty,
+        #                     # "deliverMethod": deliver_method,
+        #                     "ticketItems": [
+        #                         {
+        #                             # "id": str(uuid.uuid4()),  # 或抓包里的 id，临时随机填
+        #                             "id": '1750241734743100000003',
+        #                             "audienceId": audience_id
+        #                         }
+        #                         for audience_id in audience_ids
+        #                     ]
+        #                 }
+        #             ],
+        #             "spu": {
+        #                 "id": show_id,
+        #                 "session_Id": session_id,
+        #                 "spuType": "SINGLE",
+        #                 "addPromoVersionHash": "EMPTY_PROMOTION_HASH",
+        #                 "promotionVersionHash": "EMPTY_PROMOTION_HASH"
+        #             }
+        #         }
+        #     ],
+        #
+        #     "locationParam":[
+        #         {
+        #          "locationCityId": "BL1173",
+        #          "bsCityId": "BL1173"
+        #          }],
+        #     "many2OneAudience": {
+        #     #     "audienceId": '67e6ac7b03a32d0001155cec',
+        #     # # audience_ids[0]
+        #     #     "sessionIds": [
+        #     #         session_id
+        #     #     ]
+        #     },
+        #     "orderSource": "COMMON",
+        #     "paymentParam": [{
+        #         "totalAmount": f"{price * qty:.2f}",
+        #         "payAmount": f"{price * qty:.2f}"
+        #     }],
+        #     "priorityId":"",
+        #     "scene":"",
+        #     "sourceOrderId":""
+        # }
         data = {
+            "src": "WEB",
+            "ver": "4.35.3",
+            "addressParam": {},
+            "locationParam": {
+                "locationCityId": "BL1173",
+                "bsCityId": "BL1173"
+            },
+            "paymentParam": {
+                "totalAmount": f"{price * qty:.2f}",
+                "payAmount": f"{price * qty:.2f}"
+            },
             "priceItemParam": [
                 {
                     "applyTickets": [],
@@ -244,30 +341,34 @@ def create_order(show_id, session_id, seat_plan_id, price: int, qty: int, delive
             ],
             "items": [
                 {
-                    "skus": [
-                        {
-                            "seatPlanId": seat_plan_id,
-                            "sessionId": session_id,
-                            "showId": show_id,
-                            "skuId": seat_plan_id,
-                            "skuType": "SINGLE",
-                            "ticketPrice": price,
-                            "qty": qty,
-                            "deliverMethod": deliver_method
-                        }
-                    ],
+                    "sku": {
+                        "skuId": seat_plan_id,
+                        "skuType": "SINGLE",
+                        "ticketPrice": price,
+                        "qty": qty,
+                        "ticketItems": [
+                            {
+                                "id": "1750246847613100000003",
+                                "audienceId": audience_id,
+                            }
+                            for audience_id in audience_ids
+                        ]
+                    },
                     "spu": {
-                        "id": show_id,
-                        "spuType": "SINGLE"
-                    }
+                        "showId": show_id,
+                        "sessionId": session_id,
+                        "promotionVersionHash": "EMPTY_PROMOTION_HASH",
+                        "addPromoVersionHash": "EMPTY_PROMOTION_HASH"
+                    },
+                    "deliverMethod": "E_TICKET"
                 }
             ],
-            "many2OneAudience": {
-                "audienceId": audience_ids[0],
-                "sessionIds": [
-                    session_id
-                ]
-            }
+            "priorityId": "",
+            "sourceOrderId": "",
+            "addPurchasePromotionId": "",
+            "scene": "",
+            "many2OneAudience": {},
+            "orderSource": "COMMON"
         }
     elif deliver_method == "VENUE":
         data = {
@@ -353,10 +454,9 @@ def create_order(show_id, session_id, seat_plan_id, price: int, qty: int, delive
             ],
             "items": [
                 {
-                    "skus": [
+                    "sku": [
                         {
                             "seatPlanId": seat_plan_id,
-                            "sessionId": session_id,
                             "showId": show_id,
                             "skuId": seat_plan_id,
                             "skuType": "SINGLE",
@@ -367,17 +467,21 @@ def create_order(show_id, session_id, seat_plan_id, price: int, qty: int, delive
                     ],
                     "spu": {
                         "id": show_id,
+                        "sessionId": session_id,
                         "spuType": "SINGLE"
                     }
                 }
             ],
-            "one2oneAudiences": [{"audienceId": i, "sessionId": session_id} for i in audience_ids]
+            "one2oneAudiences": [{"audienceId": 0, "sessionId": session_id} for i in audience_ids]
         }
     else:
         raise Exception("不支持的deliver_method: " + str(deliver_method))
     # print(data)
-    url = "https://m.piaoxingqiu.com/cyy_gatewayapi/trade/buyer/order/v3/create_order"
-    response = requests.post(url=url, headers=headers, json=data).json()
+    url = "https://m.piaoxingqiu.com/cyy_gatewayapi/trade/buyer/order/v5/create_order?lang=zh&terminalSrc=WEB&utcOffset=480&ver=4.35.3"
+    # response = requests.post(url=url, headers=headers, json=data).json()
+    response = requests.post(url = url, headers=headers, data=data)
+    logging.info(response.json()['statusCode'])
+    logging.info("已尝试下单")
     if response["statusCode"] == 200:
         logging.info("下单成功！请尽快支付！")
         if sckey:

@@ -37,6 +37,7 @@ while True:
             while True:
                 try:
                     sessions = request.get_sessions(show_id)
+
                     if sessions:
                         for i in sessions:
                             if i["sessionStatus"] == 'ON_SALE' or (i["sessionStatus"] == 'PRE_SALE' and i["bizShowSessionId"] not in session_id_exclude):
@@ -44,6 +45,7 @@ while True:
                                 logging.info(f"session_id: {session_id}")
                                 break
                         if session_id:
+                            logging.info("已获取到session_id")
                             break
                         else:
                             logging.info("未获取到在售状态且符合购票数量需求的session_id")
@@ -81,6 +83,7 @@ while True:
                     break
         except Exception as e:
             logging.error(f"Error getting seat plans or seat count: {e}")
+            logging.info("余票信息问题")
             session_id_exclude.append(session_id)  # 排除掉这个场次
             session_id = ''
             continue
@@ -98,6 +101,7 @@ while True:
                 logging.info(f"自动选择的deliver_method为: {deliver_method}")
             except Exception as e:
                 logging.error(f"Error getting deliver method: {e}")
+                logging.info("票务配送问题1")
                 session_id_exclude.append(session_id)  # 排除掉这个场次
                 session_id = ''
                 continue
@@ -107,6 +111,7 @@ while True:
                 request.create_order(show_id, session_id, seat_plan_id, price, buy_count, deliver_method, 0, None, None, None, None, None, [])
             except Exception as e:
                 logging.error(f"Error creating order with VENUE_E: {e}")
+                logging.info("票务配送问题2")
                 session_id_exclude.append(session_id)  # 排除掉这个场次
                 session_id = ''
                 continue
@@ -114,10 +119,17 @@ while True:
             try:
                 # 获取观演人信息
                 audiences = request.get_audiences()
+                if not audiences:
+                    logging.error("观演人获取失败，返回为空")
+
+                # logging.info(audiences)
                 if len(audience_idx) == 0:
                     audience_idx = range(buy_count)
                 audience_ids = [audiences[i]["id"] for i in audience_idx]
-
+                logging.info(f"已选择的观演人: {audience_ids}")
+                # print(audiences)
+                # audience_ids = [audiences[0]["id"]]
+                # audience_ids = '67e6ac7b03a32d0001155cec'
                 logging.info(f"当前的配送方法: {deliver_method}")  # 打印当前的配送方法，以便调试
 
                 if deliver_method == "EXPRESS":
@@ -135,11 +147,13 @@ while True:
                     # 下单
                     request.create_order(show_id, session_id, seat_plan_id, price, buy_count, deliver_method, express_fee["priceItemVal"], receiver, cellphone, address_id, detail_address, location_city_id, audience_ids)
                 elif deliver_method in ("VENUE", "E_TICKET", "ID_CARD"):
+                    logging.info("E_TICKET")
                     request.create_order(show_id, session_id, seat_plan_id, price, buy_count, deliver_method, 0, None, None, None, None, None, audience_ids)
                 else:
                     logging.warning(f"不支持的deliver_method: {deliver_method}")
             except Exception as e:
                 logging.error(f"Error creating order: {e}")
+                logging.info("创建订单失败")
                 session_id_exclude.append(session_id)  # 排除掉这个场次
                 session_id = ''
                 continue
